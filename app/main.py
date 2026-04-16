@@ -5,9 +5,12 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 
 from app import audit, store
+from app.bootstrap import init_project
 from app.models import (
     CreateDraftRequest,
     CreateDraftResponse,
+    InitProjectRequest,
+    InitProjectResponse,
     SelectCanonicalRequest,
     SelectCanonicalResponse,
     SummarizeRequest,
@@ -49,6 +52,16 @@ def select_canonical_endpoint(request: SelectCanonicalRequest):
 def create_draft_endpoint(request: CreateDraftRequest):
     try:
         return create_draft(request)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/init-project", response_model=InitProjectResponse)
+def init_project_endpoint(request: InitProjectRequest):
+    try:
+        return init_project(request)
+    except PolicyDeniedError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
