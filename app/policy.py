@@ -72,6 +72,11 @@ _WORKFLOW_WRITE_TARGETS: dict[str, list[ObjectType]] = {
         ObjectType.TRACKER,
         ObjectType.WORK_SUMMARY,
     ],
+    "init_project": [
+        ObjectType.PROJECT_STATE,
+        ObjectType.TRACKER,
+        ObjectType.WORK_SUMMARY,
+    ],
 }
 
 
