@@ -10,26 +10,6 @@ One end-to-end governed workflow:
 
 > **Summarize current project status and update tracker.**
 
-```
-prompt → project scope → governed retrieval → policy check →
-generate → write-back → audit
-```
-
-## Architecture
-
-```
-LLM / API Client
-      │
-      ▼
-Control Layer  ◄── this service (governance, policy, audit)
-      │
-      ▼
-Local JSON Store  (active MVP backend)
-      │
-      ▼
-(Future) AFFiNE / Google Drive / ASD MCP servers
-```
-
 ## Quickstart
 
 ```bash
@@ -37,18 +17,27 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+## Optional: Enable LLM generation (controlled)
+
+By default, the system uses deterministic summaries.
+
+To enable LLM-assisted generation (step 4 only):
+
+```bash
+export CONTROL_LAYER_GENERATION_MODE=llm
+export LLM_API_URL="https://your-llm-endpoint/v1/chat/completions"
+export LLM_API_KEY="your-key"
+export LLM_MODEL="your-model"
+```
+
+If configuration is missing or the call fails, the system automatically falls back to deterministic output.
+
 ## Bootstrap (API-first)
 
 ```bash
 curl -X POST http://localhost:8000/init-project \
   -H "Content-Type: application/json" \
   -d '{"project_id": "proj-001"}'
-```
-
-## Alternative reset (CLI)
-
-```bash
-python scripts/seed.py
 ```
 
 ## MVP Workflow
@@ -65,17 +54,10 @@ curl -X POST http://localhost:8000/summarize-project-status \
 curl 'http://localhost:8000/audit-log?project_id=proj-001'
 ```
 
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Service health check |
-| GET | `/version` | Service version |
-| POST | `/init-project` | Initialize project state (governed) |
-| POST | `/summarize-project-status` | MVP workflow |
-| GET | `/audit-log` | Retrieve audit trail |
-
 ## Notes
 
-- `init-project` is non-destructive: it will fail if a project already exists
-- `scripts/seed.py` remains for full reset during development
+- LLM is not allowed to change retrieval or write targets
+- All governance checks remain unchanged
+- LLM only affects text generation (step 4)
+- Fallback guarantees deterministic behavior
+- `init-project` is non-destructive
