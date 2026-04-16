@@ -1,10 +1,11 @@
+# =========================
+# Python
+# =========================
 __pycache__/
 *.py[cod]
 *.pyo
-.env
-.venv/
-venv/
-data/audit.jsonl
+*.pyd
+*.so
 
 # =========================
 # Environment & Secrets
@@ -12,13 +13,13 @@ data/audit.jsonl
 .env
 .env.*
 !.env.example
+secrets.*
+credentials.*
 *.pem
 *.key
 *.crt
 *.p12
 *.pfx
-secrets.*
-credentials.*
 
 # =========================
 # Virtual Environments
@@ -44,7 +45,17 @@ Thumbs.db
 .idea/
 
 # =========================
-# Local Data (optioneel)
+# Local Data
 # =========================
+data/audit.jsonl
 data/private/
 *.sqlite3
+
+# =========================
+# Testing & Coverage (optioneel)
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
