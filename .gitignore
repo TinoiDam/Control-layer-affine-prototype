@@ -5,3 +5,46 @@ __pycache__/
 .venv/
 venv/
 data/audit.jsonl
+
+# =========================
+# Environment & Secrets
+# =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.*
+credentials.*
+
+# =========================
+# Virtual Environments
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# Logs & Temporary Files
+# =========================
+*.log
+tmp/
+temp/
+
+# =========================
+# OS & IDE Files
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Local Data (optioneel)
+# =========================
+data/private/
+*.sqlite3
