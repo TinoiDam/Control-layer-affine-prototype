@@ -6,6 +6,6 @@
     "version": 1,
     "last_updated": "2026-04-16T09:00:00Z",
     "title": "Select canonical source mechanism",
-    "description": "Decide whether canonical source selection is rule-based or ML-assisted. Current direction: rule-based, deterministic."
+    "description": "Decide whether canonical source selection is rule-based or ML-assisted."
   }
 ]

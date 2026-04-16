@@ -31,6 +31,10 @@ def log_select_canonical(selected_id: str, rejected: list[RejectedDoc]) -> None:
         "audit_id": f"aud-{uuid.uuid4().hex[:8]}",
         "timestamp": _now(),
         "action": "select_canonical_document",
+        "project_id": None,
+        "sources_used": [selected_id],
+        "write_targets": [],
+        "result_status": "success",
         "selected_document_id": selected_id,
         "rejected": [r.model_dump() for r in rejected],
     })
@@ -41,6 +45,10 @@ def log_create_draft(source_id: str, draft_id: str) -> None:
         "audit_id": f"aud-{uuid.uuid4().hex[:8]}",
         "timestamp": _now(),
         "action": "create_draft",
+        "project_id": None,
+        "sources_used": [source_id],
+        "write_targets": [draft_id],
+        "result_status": "success",
         "source_document_id": source_id,
         "draft_id": draft_id,
     })
@@ -51,6 +59,10 @@ def log_rejection(document_id: str, reason: str) -> None:
         "audit_id": f"aud-{uuid.uuid4().hex[:8]}",
         "timestamp": _now(),
         "action": "rejection",
+        "project_id": None,
+        "sources_used": [],
+        "write_targets": [],
+        "result_status": "denied",
         "document_id": document_id,
         "reason": reason,
     })
@@ -74,9 +86,9 @@ def log_workflow(
         "timestamp": _now(),
         "action": action,
         "project_id": project_id,
-        "sources_read": sources_read,
-        "policy_decisions": policy_decisions,
+        "sources_used": sources_read,
         "write_targets": write_targets,
+        "policy_decisions": policy_decisions,
         "result_status": result_status,
     })
 

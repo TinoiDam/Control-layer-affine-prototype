@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Query
 
 from app import audit, store
 from app.models import (
@@ -62,5 +64,8 @@ def summarize_project_status_endpoint(request: SummarizeRequest):
 
 
 @app.get("/audit-log")
-def get_audit_log():
-    return audit.read_audit_log()
+def get_audit_log(project_id: Optional[str] = Query(default=None)):
+    records = audit.read_audit_log()
+    if project_id:
+        records = [r for r in records if r.get("project_id") == project_id]
+    return records
