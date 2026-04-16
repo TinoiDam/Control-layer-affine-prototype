@@ -128,3 +128,15 @@ class SummarizeResponse(BaseModel):
     sources_used: list[str]
     write_targets: list[str]
     audit_id: str
+
+
+class InitProjectRequest(BaseModel):
+    project_id: str
+    status: str = "active"
+
+
+class InitProjectResponse(BaseModel):
+    project_id: str
+    status: str
+    write_targets: list[str]
+    audit_id: str
