@@ -79,18 +79,28 @@ def log_workflow(
     policy_decisions: list[dict],
     write_targets: list[str],
     result_status: str,
+    state_diff: dict | None = None,
 ) -> str:
     """Log a full governance workflow event. Returns the audit_id."""
-    return _append({
+    deny = next((p for p in policy_decisions if p.get("decision") == "deny"), None)
+    policy_decision = "deny" if deny else "allow"
+    policy_reason = deny["reason"] if deny else "all_checks_passed"
+
+    record: dict = {
         "audit_id": f"aud-{uuid.uuid4().hex[:8]}",
         "timestamp": _now(),
         "action": action,
         "project_id": project_id,
         "sources_used": sources_read,
         "write_targets": write_targets,
+        "policy_decision": policy_decision,
+        "policy_reason": policy_reason,
         "policy_decisions": policy_decisions,
         "result_status": result_status,
-    })
+    }
+    if state_diff is not None:
+        record["state_diff"] = state_diff
+    return _append(record)
 
 
 # ---------------------------------------------------------------------------

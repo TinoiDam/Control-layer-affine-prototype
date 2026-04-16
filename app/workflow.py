@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timezone
 
 from app import audit, project_store
@@ -96,17 +95,31 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
             raise PolicyDeniedError(f"Write denied for {obj_type.value}: {reason}")
 
     # ------------------------------------------------------------------
-    # 6. Write-back: update PROJECT_STATE
+    # 6. Write-back: update PROJECT_STATE (capture diff for audit)
     # ------------------------------------------------------------------
+    state_diff = {
+        "before": {
+            "version": state.version,
+            "open_actions": state.open_actions,
+            "open_decisions": state.open_decisions,
+            "last_updated": state.last_updated,
+        },
+        "after": {
+            "version": state.version + 1,
+            "open_actions": len(open_actions),
+            "open_decisions": len(open_decisions),
+            "last_updated": _now_iso(),
+        },
+    }
     updated_state = ProjectState(
         project_id=state.project_id,
         object_type=state.object_type,
         status=state.status,
-        version=state.version + 1,
-        last_updated=_now_iso(),
+        version=state_diff["after"]["version"],
+        last_updated=state_diff["after"]["last_updated"],
         summary=summary,
-        open_actions=len(open_actions),
-        open_decisions=len(open_decisions),
+        open_actions=state_diff["after"]["open_actions"],
+        open_decisions=state_diff["after"]["open_decisions"],
     )
     project_store.save_project_state(updated_state)
 
@@ -126,7 +139,6 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
     # ------------------------------------------------------------------
     # 8. Create WORK_SUMMARY
     # ------------------------------------------------------------------
-    work_summary_id = f"ws-{uuid.uuid4().hex[:8]}"
     project_store.append_work_summary(WorkSummary(
         project_id=project_id,
         object_type=ObjectType.WORK_SUMMARY,
@@ -141,7 +153,8 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
     # 9. Audit all reads, writes, and policy decisions
     # ------------------------------------------------------------------
     audit_id = _emit_audit(
-        project_id, sources_read, policy_log, write_target_values, "success"
+        project_id, sources_read, policy_log, write_target_values, "success",
+        state_diff=state_diff,
     )
 
     return SummarizeResponse(
@@ -159,6 +172,7 @@ def _emit_audit(
     policy_decisions: list[dict],
     write_targets: list[str],
     result_status: str,
+    state_diff: dict | None = None,
 ) -> str:
     return audit.log_workflow(
         project_id=project_id,
@@ -167,6 +181,7 @@ def _emit_audit(
         policy_decisions=policy_decisions,
         write_targets=write_targets,
         result_status=result_status,
+        state_diff=state_diff,
     )
 
 
