@@ -8,9 +8,12 @@ from app.models import (
     CreateDraftResponse,
     SelectCanonicalRequest,
     SelectCanonicalResponse,
+    SummarizeRequest,
+    SummarizeResponse,
 )
-from app.policy import AmbiguityError, NoCanonicalFoundError
+from app.policy import AmbiguityError, NoCanonicalFoundError, PolicyDeniedError
 from app.selector import create_draft, select_canonical
+from app.workflow import summarize_project_status
 
 app = FastAPI(title="Control Layer", version="1.0.0")
 
@@ -46,6 +49,16 @@ def create_draft_endpoint(request: CreateDraftRequest):
         return create_draft(request)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/summarize-project-status", response_model=SummarizeResponse)
+def summarize_project_status_endpoint(request: SummarizeRequest):
+    try:
+        return summarize_project_status(request)
+    except PolicyDeniedError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.get("/audit-log")

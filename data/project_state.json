@@ -1,0 +1,10 @@
+{
+  "project_id": "proj-001",
+  "object_type": "PROJECT_STATE",
+  "status": "active",
+  "version": 1,
+  "last_updated": "2026-04-16T10:00:00Z",
+  "summary": "Initial project state. Control layer MVP in progress.",
+  "open_actions": 2,
+  "open_decisions": 1
+}

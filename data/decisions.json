@@ -1,0 +1,11 @@
+[
+  {
+    "project_id": "proj-001",
+    "object_type": "DECISIONS",
+    "status": "open",
+    "version": 1,
+    "last_updated": "2026-04-16T09:00:00Z",
+    "title": "Select canonical source mechanism",
+    "description": "Decide whether canonical source selection is rule-based or ML-assisted. Current direction: rule-based, deterministic."
+  }
+]

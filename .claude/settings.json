@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://api.github.com/repos/cli/cli/releases/latest)",
+      "Bash(python3 -c \"import json,sys; r=json.load\\(sys.stdin\\); print\\(r['tag_name']\\); [print\\(a['browser_download_url']\\) for a in r['assets'] if 'macOS_arm64' in a['name'] and a['name'].endswith\\('.tar.gz'\\)]\")",
+      "Bash(python3 -c \"import json,sys; r=json.load\\(sys.stdin\\); [print\\(a['browser_download_url']\\) for a in r['assets'] if 'macOS' in a['name'] or 'macos' in a['name']]\")",
+      "Bash(curl -sL https://github.com/cli/cli/releases/download/v2.89.0/gh_2.89.0_macOS_arm64.zip -o /tmp/gh.zip)",
+      "Bash(unzip -q /tmp/gh.zip -d /tmp/gh_install)",
+      "Bash(mkdir -p ~/bin)",
+      "Bash(mv /tmp/gh_install/gh_2.89.0_macOS_arm64/bin/gh ~/bin/gh)",
+      "Bash(~/bin/gh --version)",
+      "Bash(rm -rf /tmp/gh_install)",
+      "Bash(unzip -q -o /tmp/gh.zip -d /tmp/gh_install)",
+      "Bash(~/bin/gh auth *)",
+      "Bash(~/bin/gh issue *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s https://api.github.com/repos/kwuite/affine-mcp-server/contents/src/tools)",
+      "Bash(curl -s https://api.github.com/repos/kwuite/affine-mcp-server/contents/src/markdown)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c ' *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

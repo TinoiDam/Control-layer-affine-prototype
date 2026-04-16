@@ -1,0 +1,32 @@
+[
+  {
+    "project_id": "proj-001",
+    "object_type": "ACTIONS",
+    "status": "open",
+    "version": 1,
+    "last_updated": "2026-04-16T09:00:00Z",
+    "title": "Implement AFFiNE adapter stub",
+    "assignee": "architecture-team",
+    "due_date": "2026-05-01"
+  },
+  {
+    "project_id": "proj-001",
+    "object_type": "ACTIONS",
+    "status": "open",
+    "version": 1,
+    "last_updated": "2026-04-16T09:30:00Z",
+    "title": "Validate governance policy with compliance officer",
+    "assignee": "architecture-team",
+    "due_date": "2026-04-30"
+  },
+  {
+    "project_id": "proj-001",
+    "object_type": "ACTIONS",
+    "status": "closed",
+    "version": 1,
+    "last_updated": "2026-04-16T10:00:00Z",
+    "title": "Implement local JSON backend",
+    "assignee": "architecture-team",
+    "due_date": null
+  }
+]

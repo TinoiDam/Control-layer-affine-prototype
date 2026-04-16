@@ -1,3 +1,16 @@
+"""
+FUTURE STUB — NOT ACTIVE IN MVP
+
+This adapter is preserved for future AFFiNE integration but is NOT part of
+the active MVP execution path. The governance-first MVP uses the JSON backend
+(BACKEND=json, the default).
+
+To activate this adapter, set BACKEND=affine and provide:
+  AFFINE_MCP_URL, AFFINE_WORKSPACE_ID, AFFINE_API_TOKEN
+
+Do not add these to the active startup path until AFFiNE integration is
+explicitly scoped as the next iteration.
+"""
 from __future__ import annotations
 
 import json

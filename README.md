@@ -1,25 +1,41 @@
-# Control Layer — Affine Prototype
+# Control Layer — Governance-First Prototype
 
-A governance layer that sits between an LLM (Claude) and knowledge backends (AFFiNE, Google Drive, ASD MCP servers). It enforces deterministic canonical source selection, policy-compliant draft creation, and full auditability before any future MCP integration.
+A policy-enforced control layer that governs all reads and writes for
+AI-driven document and project workflows. The model never decides what
+to read or where to write — the control layer does.
+
+## Active MVP
+
+One end-to-end governed workflow:
+
+> **Summarize current project status and update tracker.**
+
+```
+prompt → project scope → governed retrieval → policy check →
+generate → write-back → audit
+```
 
 ## Architecture
 
 ```
-LLM Client (Claude)
-        │
-        ▼
-Control Layer  ◄── this service
-        │
-        ▼
-Knowledge Backend (mock JSON → AFFiNE / Google Drive)
+LLM / API Client
+      │
+      ▼
+Control Layer  ◄── this service (governance, policy, audit)
+      │
+      ▼
+Local JSON Store  (active MVP backend)
+      │
+      ▼
+(Future) AFFiNE / Google Drive / ASD MCP servers
 ```
 
-## Features
-
-- **Canonical source selection** — deterministically picks the highest approved version matching type and tags; fails closed on ambiguity
-- **Draft-only creation** — drafts are only generated from approved templates; approved documents can never be overwritten
-- **Audit logging** — every decision is appended to a structured JSONL log
-- **Extensible adapter pattern** — backend connectors can be swapped without touching governance logic
+**Architectural rules:**
+- The Control Layer is the only gateway for all reads and writes
+- Default deny — everything is denied unless explicitly allowed
+- The model never decides retrieval scope or write targets
+- All decisions are logged in an append-only audit trail
+- Fail closed on ambiguity
 
 ## Quickstart
 
@@ -28,7 +44,28 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-API docs available at `http://localhost:8000/docs`.
+No environment variables required. The service runs entirely on local JSON.
+
+API docs: `http://localhost:8000/docs`
+
+## MVP Workflow
+
+```bash
+curl -X POST http://localhost:8000/summarize-project-status \
+  -H "Content-Type: application/json" \
+  -d '{"project_id": "proj-001"}'
+```
+
+Returns:
+```json
+{
+  "project_id": "proj-001",
+  "summary": "Project proj-001 — Status: active\nOpen actions: 2 ...",
+  "sources_used": ["PROJECT_STATE", "DECISIONS", "ACTIONS"],
+  "write_targets": ["PROJECT_STATE", "TRACKER", "WORK_SUMMARY"],
+  "audit_id": "aud-a1b2c3d4"
+}
+```
 
 ## API Endpoints
 
@@ -36,58 +73,61 @@ API docs available at `http://localhost:8000/docs`.
 |--------|------|-------------|
 | GET | `/health` | Service health check |
 | GET | `/version` | Service version |
-| GET | `/documents` | List all documents |
+| GET | `/documents` | List reference documents |
+| POST | `/summarize-project-status` | **MVP workflow** — governed status summary |
 | POST | `/select-canonical` | Select canonical source document |
 | POST | `/create-draft` | Generate a draft from an approved template |
-| GET | `/audit-log` | Retrieve audit records |
-
-### Example: select canonical
-
-```bash
-curl -X POST http://localhost:8000/select-canonical \
-  -H "Content-Type: application/json" \
-  -d '{"document_type": "template", "required_tags": ["decision"]}'
-```
-
-### Example: create draft
-
-```bash
-curl -X POST http://localhost:8000/create-draft \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source_document_id": "tpl-v2",
-    "placeholders": {
-      "decision": "Assign domain owners",
-      "owner": "architecture-team",
-      "date": "2026-04-16",
-      "impact": "High",
-      "context": "Domain ownership was undefined.",
-      "outcome": "Each domain now has a designated owner."
-    }
-  }'
-```
+| GET | `/audit-log` | Retrieve full audit trail |
 
 ## Project Structure
 
 ```
 ├── app/
-│   ├── main.py       # FastAPI routes
-│   ├── models.py     # Pydantic models and enums
-│   ├── policy.py     # Governance rules (pure functions)
-│   ├── selector.py   # Canonical selection and draft creation
-│   ├── store.py      # JSON file adapter
-│   └── audit.py      # Append-only JSONL audit logger
+│   ├── main.py           # FastAPI routes
+│   ├── models.py         # Pydantic domain models
+│   ├── policy.py         # Governance rules (pure, default deny)
+│   ├── workflow.py       # MVP workflow: summarize_project_status
+│   ├── project_store.py  # Project object persistence
+│   ├── store.py          # Document store (adapter factory)
+│   ├── selector.py       # Canonical document selection
+│   ├── audit.py          # Append-only JSONL audit logger
+│   └── adapters/
+│       ├── base.py           # BackendAdapter protocol
+│       ├── json_adapter.py   # Active: local JSON backend
+│       └── affine_adapter.py # Future stub: AFFiNE backend
 ├── data/
-│   ├── documents.json  # Seed documents
-│   ├── drafts.json     # Created drafts (runtime)
-│   └── audit.jsonl     # Audit log (runtime)
-└── requirements.txt
+│   ├── project_state.json  # Canonical project state
+│   ├── decisions.json
+│   ├── actions.json
+│   ├── tracker.json
+│   ├── work_summaries.json
+│   ├── documents.json      # Reference documents / templates
+│   └── drafts.json
+└── docs/
+    ├── PROJECT_STATE.md
+    └── MVP_WORKFLOW.md
 ```
+
+## Governance policy
+
+| Read allowed | Write allowed |
+|-------------|--------------|
+| PROJECT_STATE | PROJECT_STATE |
+| DECISIONS | TRACKER |
+| ACTIONS | WORK_SUMMARY |
+| WORK_SUMMARY (recent) | — |
 
 ## Tech Stack
 
 Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn · Local JSON storage
 
-## Out of Scope (MVP)
+## Future work (out of scope for active MVP)
 
-AFFiNE / Google Drive integration · ASD MCP servers · RBAC · Vector search · Human approval workflows
+| Area | Description |
+|------|-------------|
+| AFFiNE integration | `app/adapters/affine_adapter.py` — stub ready |
+| MCP exposure | Expose control layer as MCP tools |
+| Google Drive | Backend adapter |
+| RBAC | Role-based access control |
+| Human-in-the-loop | Approval workflows |
+| Policy-as-code | External policy configuration |
