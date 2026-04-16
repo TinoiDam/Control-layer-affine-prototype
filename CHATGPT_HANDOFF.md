@@ -1,158 +1,147 @@
-# ChatGPT Handoff — Control Layer MVP
+# ChatGPT Handoff — Control Layer MVP / Feature Branch
 
-**Repo:** `Control-layer-affine-prototype`
-**Backend:** Local JSON (no external dependencies)
-**Status:** MVP hardening complete. Single governed workflow runs end-to-end.
+**Repo:** `Control-layer-affine-prototype`  
+**Primary branch for continuation:** `feature/llm-generation`  
+**Backend:** Local JSON  
+**Current status:** Governance-first MVP is validated. Controlled LLM injection is implemented on the feature branch and currently falls back safely because the external provider returned `429 Too Many Requests`.
 
 ---
 
-## 1. What I changed
+## 1. What changed on `feature/llm-generation`
 
 | File | What changed | Status |
 |------|-------------|--------|
-| `app/models.py` | Added domain objects: `ProjectState`, `TrackerEntry`, `Decision`, `Action`, `WorkSummary`, `ObjectType`; added `SummarizeRequest/Response` | Complete |
-| `app/policy.py` | Added `can_read`, `can_write`, `allowed_write_targets` (default deny, fail closed); kept original document governance functions | Complete |
-| `app/audit.py` | Added `log_workflow` with full governance fields; added top-level `policy_decision`, `policy_reason`, `state_diff`; standardised all events to include `sources_used`, `write_targets`, `result_status` | Complete |
-| `app/workflow.py` | Implemented 9-step `summarize_project_status` flow; removed dead `work_summary_id` variable; passes `state_diff` to audit | Complete |
-| `app/project_store.py` | New — CRUD for `PROJECT_STATE`, `DECISIONS`, `ACTIONS`, `TRACKER`, `WORK_SUMMARY` on JSON files | Complete |
-| `app/main.py` | Added `POST /summarize-project-status`; added `?project_id` filter to `GET /audit-log` | Complete |
-| `app/store.py` | Refactored to adapter factory; `BACKEND=json` is default; `BACKEND=affine` path preserved but disabled | Complete |
-| `app/adapters/affine_adapter.py` | Marked as future stub — not active | Complete (stub only) |
-| `scripts/seed.py` | Resets all data files and clears `audit.jsonl` to clean demo state | Complete |
-| `data/project_state.json` | Seed: project `proj-001`, version 1, active | Seed only |
-| `data/decisions.json` | Seed: 1 open decision | Seed only |
-| `data/actions.json` | Seed: 2 open + 1 closed action | Seed only |
-| `data/tracker.json` | Empty — populated at runtime | Seed only |
-| `data/work_summaries.json` | Empty — populated at runtime | Seed only |
-| `CLAUDE.md` | Repo context, architectural rules, allowed reads/writes, deprecated direction | Complete |
-| `docs/MVP_WORKFLOW.md` | Full flow diagram, policy tables, audit spec, error handling | Complete |
-| `docs/PROJECT_STATE.md` | Schema, rules, relationships | Complete |
-| `README.md` | Bootstrap instructions, exact curl commands, real audit output example | Complete |
+| `app/main.py` | Added `POST /init-project` endpoint | Complete |
+| `app/bootstrap.py` | Added governed project initialization workflow | Complete |
+| `app/models.py` | Added `InitProjectRequest` and `InitProjectResponse` | Complete |
+| `app/project_store.py` | Added `init_project()` and safe single-project bootstrap helpers | Complete |
+| `app/policy.py` | Added `init_project` write target policy | Complete |
+| `app/llm.py` | Added controlled LLM generation adapter with deterministic fallback | Complete |
+| `app/workflow.py` | Wired step 4 to `generate_project_summary()` and passed generation metadata to audit | Complete |
+| `app/audit.py` | Added `generation` metadata support to workflow audit records | Complete |
+| `README.md` | Added controlled LLM configuration and API-first bootstrap notes | Complete |
+| `TEST_RUN.md` | Added reproducible validation runbook | Complete |
+| `.gitignore` | Ignores `.env`, credentials, and `data/audit.jsonl` | Complete |
 
 ---
 
 ## 2. Current runtime truth
 
-### Endpoints
+### Active endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Returns `{"status": "ok"}` |
-| GET | `/version` | Returns `{"version": "1.0.0", "service": "control-layer"}` |
-| GET | `/documents` | Lists reference documents from `data/documents.json` |
-| POST | `/select-canonical` | Selects canonical document by type + tags |
-| POST | `/create-draft` | Creates draft from approved template |
-| **POST** | **`/summarize-project-status`** | **Active MVP workflow** |
-| GET | `/audit-log` | Full audit trail; supports `?project_id=` filter |
+| GET | `/health` | Service health check |
+| GET | `/version` | Service version |
+| POST | `/init-project` | Governed, non-destructive bootstrap |
+| POST | `/summarize-project-status` | Main governed workflow |
+| GET | `/audit-log` | Audit trail, supports `?project_id=` |
 
-### Active MVP workflow
+### Current workflow behavior
 
-`POST /summarize-project-status` with `{"project_id": "proj-001"}` executes:
+`POST /summarize-project-status` executes:
 
 1. Resolve write targets for intent `summarize_project_status`
-2. Policy-check each read: `PROJECT_STATE`, `DECISIONS`, `ACTIONS`
-3. Load objects from `data/`
-4. Generate deterministic text summary
-5. Policy-check each write: `PROJECT_STATE`, `TRACKER`, `WORK_SUMMARY`
-6. Update `PROJECT_STATE` (version++)
-7. Append `TRACKER` entry
+2. Policy-check reads for `PROJECT_STATE`, `DECISIONS`, `ACTIONS`
+3. Load governed context from local JSON
+4. Generate summary:
+   - if `CONTROL_LAYER_GENERATION_MODE != llm` → deterministic summary
+   - if `CONTROL_LAYER_GENERATION_MODE == llm` → attempt external LLM call
+   - on any LLM config/runtime/provider failure → deterministic fallback
+5. Policy-check writes for `PROJECT_STATE`, `TRACKER`, `WORK_SUMMARY`
+6. Update `PROJECT_STATE`
+7. Append `TRACKER`
 8. Append `WORK_SUMMARY`
-9. Write audit record to `data/audit.jsonl`
-10. Return `SummarizeResponse`
+9. Append audit record including generation metadata
 
-### Bootstrap method
+### Current storage model
 
-```bash
-python3 scripts/seed.py                        # resets to proj-001
-python3 scripts/seed.py --project-id my-proj   # custom project ID
-```
+- Single-project only
+- `project_state.json` is one canonical state object
+- `proj-001` currently exists
+- `proj-002` init correctly fails until reset because multi-project support is out of scope
 
-Resets: `project_state.json`, `decisions.json`, `actions.json`, `tracker.json`,
-`work_summaries.json`, `audit.jsonl`.
+---
 
-### Audit structure (complete example)
+## 3. What has been validated already
+
+### Governance / storage
+- `POST /init-project` exists and works
+- `init-project` is non-destructive
+- existing `proj-001` correctly returns `409 Conflict`
+- different `project_id` also returns `409 Conflict` under current single-project design
+- `summarize-project-status` increments `PROJECT_STATE.version`
+- `TRACKER` and `WORK_SUMMARY` append correctly
+
+### Audit
+- Audit contains `policy_decision`, `policy_reason`, `policy_decisions`, `state_diff`
+- Audit now also supports `generation`
+- Latest validated feature-branch behavior produced:
 
 ```json
 {
-  "audit_id": "aud-6a426dec",
-  "timestamp": "2026-04-16T18:19:53Z",
-  "action": "summarize_project_status",
-  "project_id": "proj-001",
-  "sources_used": ["PROJECT_STATE", "DECISIONS", "ACTIONS"],
-  "write_targets": ["PROJECT_STATE", "TRACKER", "WORK_SUMMARY"],
-  "policy_decision": "allow",
-  "policy_reason": "all_checks_passed",
-  "policy_decisions": [
-    {"check": "read",  "object_type": "PROJECT_STATE", "decision": "allow", "reason": "allowed"},
-    {"check": "read",  "object_type": "DECISIONS",     "decision": "allow", "reason": "allowed"},
-    {"check": "read",  "object_type": "ACTIONS",       "decision": "allow", "reason": "allowed"},
-    {"check": "write", "object_type": "PROJECT_STATE", "decision": "allow", "reason": "allowed"},
-    {"check": "write", "object_type": "TRACKER",       "decision": "allow", "reason": "allowed"},
-    {"check": "write", "object_type": "WORK_SUMMARY",  "decision": "allow", "reason": "allowed"}
-  ],
-  "result_status": "success",
-  "state_diff": {
-    "before": {"version": 1, "open_actions": 2, "open_decisions": 1, "last_updated": "2026-04-16T10:00:00Z"},
-    "after":  {"version": 2, "open_actions": 2, "open_decisions": 1, "last_updated": "2026-04-16T18:19:53Z"}
+  "generation": {
+    "mode": "deterministic_fallback",
+    "provider": "llm",
+    "model": "gpt-4o-mini",
+    "fallback_used": true,
+    "fallback_reason": "Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'"
   }
 }
 ```
 
-### What is NOT implemented
-
-- AFFiNE / MCP / Google Drive integration (stub exists, not active)
-- RBAC or authentication
-- Human approval workflow
-- Multi-project support (single `project_state.json` only)
-- LLM-generated summary (summary is deterministic template, no model call)
-- `POST /init-project` API endpoint (bootstrap is CLI-only via `scripts/seed.py`)
-- Soft-delete or version history for PROJECT_STATE (current version overwrites in place)
+### LLM path
+- LLM path is connected correctly
+- External provider was reached successfully enough to return `429`
+- Therefore code-path is valid; current blocker is external quota/rate-limit, not local integration
 
 ---
 
-## 3. Decisions made
-
-| Decision | Rationale |
-|----------|-----------|
-| Single `project_state.json` file | Simplest for MVP; multi-project support deferred |
-| Deterministic summary (no LLM call) | Governance layer validated independently of model behaviour |
-| `sources_used` ordering is hardcoded `[PROJECT_STATE, DECISIONS, ACTIONS]` | Deterministic by design; ordering not data-driven |
-| `audit.jsonl` append-only, never modified | Audit integrity; `seed.py` truncates it only for demo reset |
-| `AffineAdapter` kept as stub | Preserves adapter pattern without adding runtime dependency |
-| Bootstrap via script, not endpoint | Avoids unauthenticated destructive API in MVP |
-| `state_diff` only on PROJECT_STATE | Only write target that mutates structured state; TRACKER/WORK_SUMMARY are append-only |
-
----
-
-## 4. Open issues / risks
+## 4. Open issues / current blocker
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| No `id` field on `WorkSummary` or `TrackerEntry` | Low | Objects are identified by position in array; no random-access lookup |
-| `project_state.json` is overwritten in place | Low | No version history; old state only recoverable from `state_diff` in audit |
-| `data/audit.jsonl` not in `.gitignore` | Low | Stale test entries may appear in repo if not seeded before commit |
-| Summary text includes `last_updated` timestamp | None | Content of summary is stable; `last_updated` field in PROJECT_STATE changes each run (expected) |
-| No error if `decisions.json` or `actions.json` is missing | Medium | `project_store.load_decisions` will raise `FileNotFoundError`; not caught gracefully |
-| Single-project assumption in `load_project_state` | Medium | Will raise `ValueError` if `project_state.json` contains a different `project_id` |
+| External LLM provider returned `429 Too Many Requests` | High | Prevents successful LLM generation, but fallback works correctly |
+| Single-project storage model | Medium | Intentional constraint; blocks `proj-002` init while `proj-001` exists |
+| No auth / RBAC | Medium | Still out of scope |
+| No version history beyond audit diff | Low | Current design acceptable for MVP |
 
 ---
 
-## 5. How to test
+## 5. Exact continuation steps for a new chat
 
-### Start the service
+1. Continue from **branch `feature/llm-generation`**, not `main`
+2. Treat current state as **working system with safe fallback**
+3. First objective is **one successful LLM run**, not more features
+4. Only if LLM still fails after provider/quota fix, inspect request/response shape
+5. Do **not** change governance reads/writes or policy flow unless absolutely required
+
+---
+
+## 6. How to test from current state
+
+### Start service
 
 ```bash
-pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### Bootstrap
+### Optional bootstrap reset
 
 ```bash
 python3 scripts/seed.py
 ```
 
-### Run the MVP workflow
+### Enable controlled LLM mode locally
+
+```bash
+export CONTROL_LAYER_GENERATION_MODE=llm
+export LLM_API_URL="https://api.openai.com/v1/chat/completions"
+export LLM_MODEL="gpt-4o-mini"
+export LLM_API_KEY="<local-secret>"
+```
+
+### Run workflow
 
 ```bash
 curl -X POST http://localhost:8000/summarize-project-status \
@@ -160,73 +149,50 @@ curl -X POST http://localhost:8000/summarize-project-status \
   -d '{"project_id": "proj-001"}'
 ```
 
-### Verify audit
+### Inspect audit
 
 ```bash
 curl 'http://localhost:8000/audit-log?project_id=proj-001'
 ```
 
-### Verify write-back
+### Success criteria
 
-```bash
-# PROJECT_STATE version should have incremented
-cat data/project_state.json | python3 -m json.tool
+A successful LLM run should produce the latest audit entry with:
 
-# TRACKER should have one entry
-cat data/tracker.json | python3 -m json.tool
-
-# WORK_SUMMARY should have one entry
-cat data/work_summaries.json | python3 -m json.tool
-```
-
-### Test policy denial (manual)
-
-```bash
-# Edit data/actions.json to remove project_id field, then:
-curl -X POST http://localhost:8000/summarize-project-status \
-  -H "Content-Type: application/json" \
-  -d '{"project_id": "proj-999"}'
-# Expect 404: No PROJECT_STATE found for project 'proj-999'
+```json
+{
+  "generation": {
+    "mode": "llm",
+    "fallback_used": false
+  }
+}
 ```
 
 ---
 
-## 6. Determinism status
+## 7. Recommended next step
 
-| Element | Deterministic? | Notes |
-|---------|---------------|-------|
-| `sources_used` | Yes | Always `["PROJECT_STATE", "DECISIONS", "ACTIONS"]` |
-| Summary text content | Yes | Same `actions.json` + `decisions.json` → identical summary |
-| `PROJECT_STATE.version` | Yes | Increments by 1 each call |
-| `PROJECT_STATE.open_actions` | Yes | Counted from `actions.json` |
-| `audit_id` | No (by design) | UUID-based; unique per event |
-| `timestamp` / `last_updated` | No (by design) | Live UTC timestamp; changes each call |
-| `WORK_SUMMARY` ordering | Yes | Append-only; order reflects call sequence |
+**Resolve provider quota/rate-limit and validate one successful LLM generation run.**
 
-**Conclusion:** The workflow is deterministic for all content. Non-determinism is intentional and isolated to identifiers and timestamps only.
+Why this is highest leverage:
+- governance path is already proven
+- fallback path is already proven
+- a successful LLM run closes the last open validation gap on the feature branch
 
 ---
 
-## 7. Recommended next step for ChatGPT
+## 8. Files to inspect first tomorrow
 
-**Add `POST /init-project` API endpoint.**
-
-Currently bootstrap requires CLI access (`scripts/seed.py`). Adding a governed API endpoint means the control layer can be initialised programmatically — useful for testing, for future LLM-driven orchestration, and for demonstrating that the control layer governs its own initialisation.
-
-Why it matters: it closes the last manual step in the MVP loop. After this, the entire lifecycle (init → workflow → audit → inspect) is API-driven with no file editing required.
-
-Scope: small. Create project state + empty tracker/work_summaries. Apply `can_write(project_id, PROJECT_STATE)` policy check. Log init event to audit.
+1. `app/workflow.py` — orchestrates the full path and now calls `generate_project_summary()`
+2. `app/llm.py` — external generation + fallback logic
+3. `app/audit.py` — generation metadata is recorded here
+4. `README.md` — env configuration and bootstrap usage
+5. `TEST_RUN.md` — validation checklist
 
 ---
 
-## 8. Diff summary for ChatGPT
+## 9. Important caution
 
-**Inspect these files first:**
-
-1. `app/workflow.py` — the full MVP flow; 9 steps, all governance logic in one place
-2. `app/policy.py` — governance rules; `can_read`, `can_write`, `allowed_write_targets`
-3. `app/audit.py` — audit schema; `log_workflow` is the primary audit function
-4. `app/project_store.py` — all persistence; simple JSON read/write
-5. `scripts/seed.py` — bootstrap; understand data shape before modifying
-
-**Most important structural fact:** `app/store.py` (document adapter factory) and `app/project_store.py` (project object store) are separate. Document governance and project governance are independent subsystems that share only `app/models.py` and `app/audit.py`.
+- Secrets were discussed during development; treat all previously exposed keys as compromised and rotated
+- Keep real keys local only via shell env vars or ignored local `.env`
+- Do not paste keys into chat, code, or repo history
