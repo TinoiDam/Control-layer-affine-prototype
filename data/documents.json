@@ -1,0 +1,67 @@
+[
+  {
+    "id": "tpl-v1",
+    "title": "Decision Record Template v1",
+    "document_type": "template",
+    "status": "approved",
+    "version": 1,
+    "owner": "architecture-team",
+    "updated_at": "2026-01-10T09:00:00Z",
+    "source": "internal",
+    "tags": ["decision", "governance"],
+    "supersedes": null,
+    "content": "# Decision Record\n\nDate: {{date}}\nDecision: {{decision}}\nOwner: {{owner}}\n\n## Context\n\n{{context}}\n\n## Outcome\n\n{{outcome}}"
+  },
+  {
+    "id": "tpl-v2",
+    "title": "Decision Record Template v2",
+    "document_type": "template",
+    "status": "approved",
+    "version": 2,
+    "owner": "architecture-team",
+    "updated_at": "2026-03-01T10:00:00Z",
+    "source": "internal",
+    "tags": ["decision", "governance"],
+    "supersedes": "tpl-v1",
+    "content": "# Decision Record\n\nDate: {{date}}\nDecision: {{decision}}\nOwner: {{owner}}\nImpact: {{impact}}\n\n## Context\n\n{{context}}\n\n## Outcome\n\n{{outcome}}"
+  },
+  {
+    "id": "tpl-v3",
+    "title": "Decision Record Template v3 (WIP)",
+    "document_type": "template",
+    "status": "draft",
+    "version": 3,
+    "owner": "architecture-team",
+    "updated_at": "2026-04-10T14:00:00Z",
+    "source": "internal",
+    "tags": ["decision", "governance"],
+    "supersedes": "tpl-v2",
+    "content": "# Decision Record\n\nDate: {{date}}\nDecision: {{decision}}\nOwner: {{owner}}\nImpact: {{impact}}\nReviewer: {{reviewer}}\n\n## Context\n\n{{context}}\n\n## Outcome\n\n{{outcome}}"
+  },
+  {
+    "id": "note-001",
+    "title": "Architecture Meeting Notes Q1",
+    "document_type": "note",
+    "status": "approved",
+    "version": 1,
+    "owner": "dam",
+    "updated_at": "2026-02-15T11:00:00Z",
+    "source": "internal",
+    "tags": ["meeting", "architecture"],
+    "supersedes": null,
+    "content": "Meeting notes from Q1 architecture review. Topics: domain ownership, service boundaries, data governance."
+  },
+  {
+    "id": "policy-001",
+    "title": "Data Governance Policy",
+    "document_type": "policy",
+    "status": "approved",
+    "version": 1,
+    "owner": "governance-team",
+    "updated_at": "2026-01-20T08:00:00Z",
+    "source": "internal",
+    "tags": ["governance", "data", "compliance"],
+    "supersedes": null,
+    "content": "All data assets must have a designated owner. Changes to approved documents require review. Drafts may not be referenced as canonical sources."
+  }
+]
