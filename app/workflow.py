@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app import audit, project_store
+from app.llm import generate_project_summary
 from app.models import (
     ObjectType,
     ProjectState,
@@ -18,26 +19,17 @@ _INTENT = "summarize_project_status"
 
 def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
     """
-    Single MVP workflow: governed retrieval → deterministic summary →
-    policy-checked write-back → audit.
-
-    prompt → project scope → governed retrieval → policy check →
-    generate → write-back → audit
+    Single MVP workflow: governed retrieval -> controlled generation ->
+    policy-checked write-back -> audit.
     """
     project_id = request.project_id
     policy_log: list[dict] = []
     sources_read: list[str] = []
 
-    # ------------------------------------------------------------------
-    # 1. Resolve write targets for this intent (pre-approved, not model-driven)
-    # ------------------------------------------------------------------
     write_targets = allowed_write_targets(_INTENT)
     if not write_targets:
         raise PolicyDeniedError(f"Unknown intent '{_INTENT}': no write targets defined.")
 
-    # ------------------------------------------------------------------
-    # 2. Governed retrieval — check every read before loading
-    # ------------------------------------------------------------------
     read_types = [ObjectType.PROJECT_STATE, ObjectType.DECISIONS, ObjectType.ACTIONS]
     for obj_type in read_types:
         ok, reason = can_read(project_id, obj_type)
@@ -52,16 +44,10 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
             raise PolicyDeniedError(f"Read denied for {obj_type.value}: {reason}")
         sources_read.append(obj_type.value)
 
-    # ------------------------------------------------------------------
-    # 3. Load data from local store
-    # ------------------------------------------------------------------
     state = project_store.load_project_state(project_id)
     decisions = project_store.load_decisions(project_id)
     actions = project_store.load_actions(project_id)
 
-    # ------------------------------------------------------------------
-    # 4. Generate deterministic status summary
-    # ------------------------------------------------------------------
     open_actions = [a for a in actions if a.status == "open"]
     closed_actions = [a for a in actions if a.status == "closed"]
     open_decisions = [d for d in decisions if d.status == "open"]
@@ -69,7 +55,7 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
     action_lines = "\n".join(f"  - [{a.status.upper()}] {a.title}" for a in actions)
     decision_lines = "\n".join(f"  - [{d.status.upper()}] {d.title}" for d in decisions)
 
-    summary = (
+    deterministic_summary = (
         f"Project {project_id} — Status: {state.status}\n"
         f"Open actions: {len(open_actions)} | Closed: {len(closed_actions)}\n"
         f"Open decisions: {len(open_decisions)}\n\n"
@@ -77,11 +63,16 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
         f"Decisions:\n{decision_lines}"
     )
 
+    summary, generation_meta = generate_project_summary(
+        project_id=project_id,
+        state=state,
+        decisions=decisions,
+        actions=actions,
+        deterministic_summary=deterministic_summary,
+    )
+
     write_target_values = [t.value for t in write_targets]
 
-    # ------------------------------------------------------------------
-    # 5. Policy-check all write targets before writing
-    # ------------------------------------------------------------------
     for obj_type in write_targets:
         ok, reason = can_write(project_id, obj_type)
         policy_log.append({
@@ -91,12 +82,9 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
             "reason": reason,
         })
         if not ok:
-            _emit_audit(project_id, sources_read, policy_log, write_target_values, "denied")
+            _emit_audit(project_id, sources_read, policy_log, write_target_values, "denied", generation=generation_meta)
             raise PolicyDeniedError(f"Write denied for {obj_type.value}: {reason}")
 
-    # ------------------------------------------------------------------
-    # 6. Write-back: update PROJECT_STATE (capture diff for audit)
-    # ------------------------------------------------------------------
     state_diff = {
         "before": {
             "version": state.version,
@@ -123,9 +111,6 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
     )
     project_store.save_project_state(updated_state)
 
-    # ------------------------------------------------------------------
-    # 7. Append TRACKER entry
-    # ------------------------------------------------------------------
     project_store.append_tracker(TrackerEntry(
         project_id=project_id,
         object_type=ObjectType.TRACKER,
@@ -136,9 +121,6 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
         triggered_by="control-layer",
     ))
 
-    # ------------------------------------------------------------------
-    # 8. Create WORK_SUMMARY
-    # ------------------------------------------------------------------
     project_store.append_work_summary(WorkSummary(
         project_id=project_id,
         object_type=ObjectType.WORK_SUMMARY,
@@ -149,12 +131,14 @@ def summarize_project_status(request: SummarizeRequest) -> SummarizeResponse:
         sources_read=sources_read,
     ))
 
-    # ------------------------------------------------------------------
-    # 9. Audit all reads, writes, and policy decisions
-    # ------------------------------------------------------------------
     audit_id = _emit_audit(
-        project_id, sources_read, policy_log, write_target_values, "success",
+        project_id,
+        sources_read,
+        policy_log,
+        write_target_values,
+        "success",
         state_diff=state_diff,
+        generation=generation_meta,
     )
 
     return SummarizeResponse(
@@ -173,6 +157,7 @@ def _emit_audit(
     write_targets: list[str],
     result_status: str,
     state_diff: dict | None = None,
+    generation: dict | None = None,
 ) -> str:
     return audit.log_workflow(
         project_id=project_id,
@@ -182,6 +167,7 @@ def _emit_audit(
         write_targets=write_targets,
         result_status=result_status,
         state_diff=state_diff,
+        generation=generation,
     )
 
 
