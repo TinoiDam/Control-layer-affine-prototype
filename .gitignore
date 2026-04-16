@@ -1,7 +1,61 @@
+# =========================
+# Python
+# =========================
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+*.so
+
+# =========================
+# Environment & Secrets
+# =========================
 .env
+.env.*
+!.env.example
+secrets.*
+credentials.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# =========================
+# Virtual Environments
+# =========================
 .venv/
 venv/
+env/
+ENV/
+
+# =========================
+# Logs & Temporary Files
+# =========================
+*.log
+tmp/
+temp/
+
+# =========================
+# OS & IDE Files
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Local Data
+# =========================
 data/audit.jsonl
+data/private/
+*.sqlite3
+
+# =========================
+# Testing & Coverage (optioneel)
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
